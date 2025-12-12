@@ -1,0 +1,175 @@
+# CodeReview AI - GitHub Action
+# Add this file to your repo at .github/workflows/codereview-ai.yml
+
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    name: AI Code Review
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: AI Code Review
+        uses: actions/github-script@v7
+        env:
+          CODEREVIEW_API_URL: ${{ secrets.CODEREVIEW_API_URL || 'https://your-api-url.com' }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.pull_request.number;
+
+            console.log(`🔍 Analyzing PR #${prNumber}...`);
+
+            // Get changed files
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner,
+              repo,
+              pull_number: prNumber,
+            });
+
+            // Analyze each file
+            const issues = [];
+
+            for (const file of files) {
+              if (file.status === 'removed') continue;
+
+              // Get file content
+              try {
+                const { data: content } = await github.rest.repos.getContent({
+                  owner,
+                  repo,
+                  path: file.filename,
+                  ref: context.payload.pull_request.head.sha,
+                });
+
+                const code = Buffer.from(content.content, 'base64').toString('utf-8');
+
+                // Simple pattern-based analysis (runs in GitHub Actions)
+                const fileIssues = analyzeCode(code, file.filename);
+
+                for (const issue of fileIssues) {
+                  issues.push({
+                    ...issue,
+                    path: file.filename,
+                  });
+                }
+              } catch (e) {
+                console.log(`Skipping ${file.filename}: ${e.message}`);
+              }
+            }
+
+            // Post review comments
+            if (issues.length > 0) {
+              const comments = issues.slice(0, 50).map(issue => ({
+                path: issue.path,
+                line: issue.line || 1,
+                body: `⚠️ **${issue.title}** (${issue.severity})\n\n${issue.description}\n\n**Suggested fix:** ${issue.fix}`,
+              }));
+
+              await github.rest.pulls.createReview({
+                owner,
+                repo,
+                pull_number: prNumber,
+                event: 'COMMENT',
+                comments,
+              });
+
+              console.log(`✅ Posted ${comments.length} review comments`);
+            } else {
+              // Post approval comment
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: '✅ **AI Code Review:** No issues found! Looking good. 🎉',
+              });
+
+              console.log('✅ No issues found');
+            }
+
+            // Analysis function (embedded for GitHub Actions)
+            function analyzeCode(code, filename) {
+              const issues = [];
+              const lines = code.split('\n');
+              const ext = filename.split('.').pop();
+
+              if (!['js', 'jsx', 'ts', 'tsx', 'py'].includes(ext)) {
+                return issues;
+              }
+
+              lines.forEach((line, idx) => {
+                const lineNum = idx + 1;
+
+                // SQL Injection
+                if (/\$\{.*\}.*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE)/i.test(line) ||
+                    /['"`]\s*\+\s*\w+.*(?:SELECT|INSERT|UPDATE|DELETE)/i.test(line)) {
+                  issues.push({
+                    title: 'Potential SQL Injection',
+                    severity: 'critical',
+                    line: lineNum,
+                    description: 'String interpolation in SQL queries can lead to SQL injection attacks.',
+                    fix: 'Use parameterized queries or an ORM.',
+                  });
+                }
+
+                // XSS
+                if (/innerHTML\s*=/.test(line) || /dangerouslySetInnerHTML/.test(line)) {
+                  issues.push({
+                    title: 'Potential XSS Vulnerability',
+                    severity: 'high',
+                    line: lineNum,
+                    description: 'Direct HTML injection can lead to cross-site scripting attacks.',
+                    fix: 'Use textContent or sanitize input with DOMPurify.',
+                  });
+                }
+
+                // Hardcoded secrets
+                if (/(?:password|secret|api_key|apikey|token)\s*[:=]\s*['"`][^'"`]{8,}/i.test(line)) {
+                  issues.push({
+                    title: 'Hardcoded Secret',
+                    severity: 'critical',
+                    line: lineNum,
+                    description: 'Secrets should never be hardcoded in source code.',
+                    fix: 'Use environment variables or a secrets manager.',
+                  });
+                }
+
+                // Console.log in production
+                if (/console\.(log|debug|info)\s*\(/.test(line)) {
+                  issues.push({
+                    title: 'Console Statement',
+                    severity: 'low',
+                    line: lineNum,
+                    description: 'Console statements should be removed in production code.',
+                    fix: 'Remove or use a proper logging library.',
+                  });
+                }
+
+                // TODO/FIXME
+                if (/\/\/\s*(TODO|FIXME|HACK|XXX)/i.test(line)) {
+                  issues.push({
+                    title: 'Unresolved TODO',
+                    severity: 'low',
+                    line: lineNum,
+                    description: 'This TODO comment should be addressed before merging.',
+                    fix: 'Complete the TODO or create a tracking issue.',
+                  });
+                }
+              });
+
+              return issues;
+            }

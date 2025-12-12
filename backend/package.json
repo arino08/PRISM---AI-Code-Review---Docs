@@ -1,0 +1,24 @@
+{
+    "name": "codereview-ai-backend",
+    "version": "1.0.0",
+    "description": "AI-powered code review and documentation generation backend",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "dev": "node --watch src/index.js"
+    },
+    "keywords": [
+        "code-review",
+        "ai",
+        "documentation",
+        "security"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+        "acorn": "^8.15.0",
+        "acorn-walk": "^8.3.4",
+        "cors": "^2.8.5",
+        "express": "^4.22.1"
+    }
+}

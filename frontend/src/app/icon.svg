@@ -1,0 +1,23 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M16 2L4 26H28L16 2Z"
+    fill="url(#prism-gradient)"
+    stroke="rgba(255,255,255,0.5)"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M16 2L16 26"
+    stroke="rgba(255,255,255,0.6)"
+    stroke-width="1.5"
+    stroke-linecap="round"
+  />
+  <circle cx="16" cy="2" r="2" fill="white" />
+
+  <defs>
+    <linearGradient id="prism-gradient" x1="16" y1="2" x2="16" y2="26" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff" stop-opacity="0.4" />
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.1" />
+    </linearGradient>
+  </defs>
+</svg>
