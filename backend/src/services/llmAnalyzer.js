@@ -110,16 +110,18 @@ async function generateDocsWithLLM(code, language, apiKey) {
 
   const prompt = `Generate comprehensive documentation for this ${language} code.
 
-Return a JSON object with:
-- jsdoc: JSDoc/docstring comments for all functions and classes
-- readme: A README section documenting the module's purpose, usage, and API
+Return a JSON object with exactly two keys:
+- "jsdoc": A single STRING containing JSDoc/docstring comments for all functions and classes (the actual comment text, not an object)
+- "readme": A single STRING containing a README in markdown format documenting the module's purpose, usage, and API
+
+IMPORTANT: Both values must be strings, NOT nested objects.
 
 Code:
 \`\`\`${language}
 ${code}
 \`\`\`
 
-Return only valid JSON with "jsdoc" and "readme" keys.`;
+Return only valid JSON with "jsdoc" and "readme" as string values.`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -153,12 +155,126 @@ Return only valid JSON with "jsdoc" and "readme" keys.`;
       jsonStr = jsonMatch[1];
     }
 
-    return JSON.parse(jsonStr.trim());
+    const parsed = JSON.parse(jsonStr.trim());
+
+    // Check if response has jsdoc/readme keys or is a function-keyed object
+    if (parsed.jsdoc !== undefined || parsed.readme !== undefined) {
+      return {
+        jsdoc: typeof parsed.jsdoc === 'string' ? parsed.jsdoc : convertToJSDoc(parsed.jsdoc),
+        readme: typeof parsed.readme === 'string' ? parsed.readme : convertToReadme(parsed.readme)
+      };
+    } else {
+      // LLM returned function-keyed object directly - convert it
+      return {
+        jsdoc: convertToJSDoc(parsed),
+        readme: convertToReadme(parsed)
+      };
+    }
 
   } catch (error) {
     console.error('LLM docs generation failed:', error);
     throw error;
   }
+}
+
+/**
+ * Convert structured object to JSDoc format
+ */
+function convertToJSDoc(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+
+  let jsdoc = '';
+
+  for (const [name, info] of Object.entries(obj)) {
+    jsdoc += '/**\n';
+    jsdoc += ` * ${info.description || name}\n`;
+    jsdoc += ' *\n';
+
+    // Handle params
+    const params = info.params || (info.constructor?.params) || [];
+    if (Array.isArray(params)) {
+      params.forEach(p => {
+        jsdoc += ` * @param {${p.type || 'any'}} ${p.name} - ${p.description || ''}\n`;
+      });
+    }
+
+    // Handle returns
+    if (info.returns) {
+      jsdoc += ` * @returns {${info.returns.type || 'any'}} ${info.returns.description || ''}\n`;
+    }
+
+    // Handle throws
+    if (info.throws) {
+      jsdoc += ` * @throws {${info.throws.type || 'Error'}} ${info.throws.description || ''}\n`;
+    }
+
+    // Handle methods for classes
+    if (info.methods) {
+      jsdoc += ' *\n';
+      for (const [methodName, methodInfo] of Object.entries(info.methods)) {
+        jsdoc += ` * @method ${methodName} - ${methodInfo.description || ''}\n`;
+      }
+    }
+
+    jsdoc += ' */\n\n';
+  }
+
+  return jsdoc.trim();
+}
+
+/**
+ * Convert structured object to README markdown
+ */
+function convertToReadme(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+
+  let readme = '# API Reference\n\n';
+
+  for (const [name, info] of Object.entries(obj)) {
+    const isClass = info.constructor || info.methods;
+
+    readme += `## ${isClass ? 'Class: ' : ''}${name}\n\n`;
+    readme += `${info.description || ''}\n\n`;
+
+    // Handle params
+    const params = info.params || (info.constructor?.params) || [];
+    if (Array.isArray(params) && params.length > 0) {
+      readme += '### Parameters\n\n';
+      readme += '| Name | Type | Description |\n';
+      readme += '|------|------|-------------|\n';
+      params.forEach(p => {
+        readme += `| \`${p.name}\` | \`${p.type || 'any'}\` | ${p.description || ''} |\n`;
+      });
+      readme += '\n';
+    }
+
+    // Handle returns
+    if (info.returns) {
+      readme += `**Returns:** \`${info.returns.type || 'any'}\` - ${info.returns.description || ''}\n\n`;
+    }
+
+    // Handle methods
+    if (info.methods) {
+      readme += '### Methods\n\n';
+      for (const [methodName, methodInfo] of Object.entries(info.methods)) {
+        readme += `#### \`${methodName}()\`\n\n`;
+        readme += `${methodInfo.description || ''}\n\n`;
+        if (methodInfo.params?.length) {
+          methodInfo.params.forEach(p => {
+            readme += `- **${p.name}** (\`${p.type || 'any'}\`): ${p.description || ''}\n`;
+          });
+          readme += '\n';
+        }
+        if (methodInfo.returns) {
+          readme += `**Returns:** \`${methodInfo.returns.type}\` - ${methodInfo.returns.description || ''}\n\n`;
+        }
+      }
+    }
+
+    readme += '---\n\n';
+  }
+
+  return readme.trim();
 }
 
 module.exports = { analyzeWithLLM, generateDocsWithLLM };

@@ -3,237 +3,366 @@
 import { useSession, signIn, signOut } from "next-auth/react";
 import { useSettings } from "@/context/SettingsContext";
 import Navigation from '@/components/Navigation';
-import { Settings, User, LogOut, Key, Palette, Shield, Sparkles } from 'lucide-react';
+import { User, LogOut, Key, Palette, Github, Check } from 'lucide-react';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const { theme, updateTheme, openaiKey, updateApiKey } = useSettings();
 
+  const themes = [
+    { id: 'monochromatic', name: 'Prism', colors: ['#ffffff', '#525252'] },
+    { id: 'neon', name: 'Neon', colors: ['#22d3ee', '#f472b6'] },
+    { id: 'oceanic', name: 'Oceanic', colors: ['#38bdf8', '#3b82f6'] },
+    { id: 'sunset', name: 'Sunset', colors: ['#fb923c', '#ef4444'] },
+  ];
+
   return (
     <>
       <Navigation />
       <main className="main-content">
-        <div className="dashboard">
-          <header className="dashboard-header" style={{ paddingBottom: '1rem' }}>
-            <h1 className="dashboard-title" style={{ fontSize: '2.5rem' }}>
-              <Settings style={{ display: 'inline', marginRight: '0.5rem', verticalAlign: 'middle' }} size={40} />
-              Settings
-            </h1>
-            <p className="dashboard-subtitle">
-              Manage your profile, preferences, and API configuration.
-            </p>
+        <div className="settings-page">
+          <header className="settings-header">
+            <h1>Settings</h1>
+            <p>Manage your profile, API keys, and appearance.</p>
           </header>
 
-          <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-            {/* User Profile */}
-            <section className="glass-card" style={{ padding: '2rem' }}>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', fontSize: '1.25rem' }}>
-                <User size={24} />
-                User Profile
-              </h2>
+          <div className="settings-grid">
+            {/* Profile Section */}
+            <section className="settings-card">
+              <div className="card-header">
+                <User size={20} />
+                <h2>Profile</h2>
+              </div>
 
               {session ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '2rem' }}>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                     {session.user.image && (
-                       <img
-                         src={session.user.image}
-                         alt={session.user.name}
-                         style={{ width: '64px', height: '64px', borderRadius: '50%', border: '2px solid var(--border-color)' }}
-                       />
-                     )}
-                     <div>
-                       <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem' }}>{session.user.name}</h3>
-                       <p style={{ color: 'var(--text-secondary)' }}>{session.user.email}</p>
-                     </div>
-                   </div>
-                   <button
-                     onClick={() => signOut()}
-                     className="btn btn-secondary"
-                     style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                   >
-                     <LogOut size={18} />
-                     Sign Out
-                   </button>
+                <div className="profile-content">
+                  <div className="profile-info">
+                    {session.user.image && (
+                      <img
+                        src={session.user.image}
+                        alt={session.user.name}
+                        className="profile-avatar"
+                      />
+                    )}
+                    <div>
+                      <h3>{session.user.name}</h3>
+                      <p>{session.user.email}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => signOut()} className="btn-ghost">
+                    <LogOut size={16} />
+                    Sign out
+                  </button>
                 </div>
               ) : (
-                <div style={{ textAlign: 'center', padding: '1rem' }}>
-                  <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
-                    Sign in with GitHub to save your history and access extended features.
-                  </p>
-                  <button
-                    onClick={() => signIn('github')}
-                    className="btn btn-primary"
-                    style={{ padding: '0.875rem 2rem' }}
-                  >
-                    <Shield size={18} style={{ marginRight: '0.5rem' }} />
+                <div className="profile-signin">
+                  <p>Connect your GitHub account to save history.</p>
+                  <button onClick={() => signIn('github')} className="btn-primary">
+                    <Github size={16} />
                     Sign in with GitHub
                   </button>
                 </div>
               )}
             </section>
 
-            {/* API Key Configuration */}
-            <section className="glass-card" style={{ padding: '2rem' }}>
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', fontSize: '1.25rem' }}>
-                 <Key size={24} />
-                 Global API Key
-              </h2>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                Set your OpenAI API key here to automatically use it across Code Review, GitHub Analysis, and Documentation Generation.
-              </p>
-
-              <div className="api-key-input" style={{ background: 'var(--bg-tertiary)' }}>
-                  <Sparkles size={16} />
-                  <input
-                    type="password"
-                    placeholder="sk-..."
-                    value={openaiKey}
-                    onChange={(e) => updateApiKey(e.target.value)}
-                    style={{ background: 'transparent', border: 'none', flex: 1, color: 'var(--text-primary)' }}
-                  />
-                  <a
-                    href="https://platform.openai.com/api-keys"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="get-key-link"
-                  >
-                    Get key
-                  </a>
+            {/* API Key Section */}
+            <section className="settings-card">
+              <div className="card-header">
+                <Key size={20} />
+                <h2>API Key</h2>
               </div>
-              <p style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                Your key is stored locally in your browser and never sent to our servers.
+
+              <p className="card-description">
+                Your OpenAI key for AI-powered analysis. Stored locally.
               </p>
+
+              <div className="api-input-wrapper">
+                <input
+                  type="password"
+                  placeholder="sk-..."
+                  value={openaiKey}
+                  onChange={(e) => updateApiKey(e.target.value)}
+                  className="api-input"
+                />
+                <a
+                  href="https://platform.openai.com/api-keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="get-key-btn"
+                >
+                  Get key →
+                </a>
+              </div>
             </section>
 
-            {/* Appearance */}
-            <section className="glass-card" style={{ padding: '2rem' }}>
-               <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', fontSize: '1.25rem' }}>
-                 <Palette size={24} />
-                 Appearance
-               </h2>
+            {/* Theme Section */}
+            <section className="settings-card theme-section">
+              <div className="card-header">
+                <Palette size={20} />
+                <h2>Theme</h2>
+              </div>
 
-               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                 {/* Monochromatic */}
-                 <button
-                   className={`theme-card ${theme === 'monochromatic' ? 'active' : ''}`}
-                   onClick={() => updateTheme('monochromatic')}
-                 >
-                   <div className="theme-preview" style={{ background: '#050505', borderColor: '#333' }}>
-                      <div className="theme-accent" style={{ background: '#ffffff' }}></div>
-                      <div className="theme-accent-2" style={{ background: '#333333' }}></div>
-                   </div>
-                   <h3>Prism</h3>
-                   <p>Monochromatic</p>
-                 </button>
-
-                 {/* Neon */}
-                 <button
-                   className={`theme-card ${theme === 'neon' ? 'active' : ''}`}
-                   onClick={() => updateTheme('neon')}
-                 >
-                   <div className="theme-preview" style={{ background: '#090014', borderColor: '#22d3ee' }}>
-                      <div className="theme-accent" style={{ background: '#22d3ee' }}></div>
-                      <div className="theme-accent-2" style={{ background: '#f472b6' }}></div>
-                   </div>
-                   <h3>Neon</h3>
-                   <p>Cyberpunk Glow</p>
-                 </button>
-
-                 {/* Oceanic */}
-                 <button
-                   className={`theme-card ${theme === 'oceanic' ? 'active' : ''}`}
-                   onClick={() => updateTheme('oceanic')}
-                 >
-                   <div className="theme-preview" style={{ background: '#020617', borderColor: '#38bdf8' }}>
-                      <div className="theme-accent" style={{ background: '#38bdf8' }}></div>
-                      <div className="theme-accent-2" style={{ background: '#3b82f6' }}></div>
-                   </div>
-                   <h3>Oceanic</h3>
-                   <p>Deep Blue</p>
-                 </button>
-
-                 {/* Sunset */}
-                 <button
-                   className={`theme-card ${theme === 'sunset' ? 'active' : ''}`}
-                   onClick={() => updateTheme('sunset')}
-                 >
-                   <div className="theme-preview" style={{ background: '#1c0505', borderColor: '#fb923c' }}>
-                      <div className="theme-accent" style={{ background: '#fb923c' }}></div>
-                      <div className="theme-accent-2" style={{ background: '#ef4444' }}></div>
-                   </div>
-                   <h3>Sunset</h3>
-                   <p>Warm & Vibrant</p>
-                 </button>
-               </div>
+              <div className="theme-grid">
+                {themes.map((t) => (
+                  <button
+                    key={t.id}
+                    className={`theme-option ${theme === t.id ? 'active' : ''}`}
+                    onClick={() => updateTheme(t.id)}
+                  >
+                    <div className="theme-colors">
+                      {t.colors.map((color, i) => (
+                        <div
+                          key={i}
+                          className="color-swatch"
+                          style={{ background: color }}
+                        />
+                      ))}
+                    </div>
+                    <span className="theme-name">{t.name}</span>
+                    {theme === t.id && <Check size={14} className="theme-check" />}
+                  </button>
+                ))}
+              </div>
             </section>
-
           </div>
         </div>
       </main>
 
       <style jsx>{`
-        .api-key-input {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.875rem 1rem;
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-md);
+        .settings-page {
+          max-width: 720px;
+          margin: 0 auto;
+          padding: 3rem 0;
         }
-        .theme-card {
-          background: var(--bg-tertiary);
+
+        .settings-header {
+          margin-bottom: 2.5rem;
+        }
+
+        .settings-header h1 {
+          font-family: var(--font-display);
+          font-size: 2rem;
+          font-weight: 600;
+          margin-bottom: 0.5rem;
+        }
+
+        .settings-header p {
+          color: var(--text-muted);
+          font-size: 0.9375rem;
+        }
+
+        .settings-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .settings-card {
+          background: var(--bg-secondary);
           border: 1px solid var(--border-color);
           border-radius: var(--radius-lg);
-          padding: 1rem;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.2s;
+          padding: 1.5rem;
         }
-        .theme-card:hover {
-          transform: translateY(-2px);
-          border-color: var(--accent-primary);
+
+        .card-header {
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+          margin-bottom: 1rem;
+          color: var(--text-primary);
         }
-        .theme-card.active {
-          border-color: var(--accent-primary);
-          box-shadow: 0 0 0 2px var(--accent-primary);
-        }
-        .theme-card h3 {
+
+        .card-header h2 {
           font-size: 1rem;
-          margin-bottom: 0.25rem;
+          font-weight: 500;
         }
-        .theme-card p {
+
+        .card-description {
+          color: var(--text-muted);
           font-size: 0.875rem;
-          color: var(--text-secondary);
+          margin-bottom: 1rem;
         }
-        .theme-preview {
-          height: 100px;
-          border-radius: var(--radius-md);
-          margin-bottom: 0.75rem;
-          border: 1px solid;
-          position: relative;
-          overflow: hidden;
+
+        .profile-content {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
         }
-        .theme-accent {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 40px;
-          height: 40px;
+
+        .profile-info {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .profile-avatar {
+          width: 48px;
+          height: 48px;
           border-radius: 50%;
-          filter: blur(10px);
-          opacity: 0.6;
+          border: 2px solid var(--border-color);
         }
-        .theme-accent-2 {
-          position: absolute;
-          bottom: 10px;
-          right: 10px;
+
+        .profile-info h3 {
+          font-size: 1rem;
+          font-weight: 500;
+          margin-bottom: 0.125rem;
+        }
+
+        .profile-info p {
+          font-size: 0.875rem;
+          color: var(--text-muted);
+        }
+
+        .profile-signin {
+          text-align: center;
+          padding: 1rem 0;
+        }
+
+        .profile-signin p {
+          color: var(--text-muted);
+          font-size: 0.875rem;
+          margin-bottom: 1rem;
+        }
+
+        .btn-ghost {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: transparent;
+          border: 1px solid var(--border-color);
+          color: var(--text-secondary);
+          padding: 0.5rem 1rem;
+          border-radius: var(--radius-md);
+          font-size: 0.875rem;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+
+        .btn-ghost:hover {
+          color: var(--text-primary);
+          border-color: var(--accent-tertiary);
+        }
+
+        .btn-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: var(--text-primary);
+          color: var(--bg-primary);
+          border: none;
+          padding: 0.625rem 1.25rem;
+          border-radius: var(--radius-md);
+          font-size: 0.875rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: opacity var(--transition-fast);
+        }
+
+        .btn-primary:hover {
+          opacity: 0.85;
+        }
+
+        .api-input-wrapper {
+          display: flex;
+          gap: 0.75rem;
+          align-items: center;
+        }
+
+        .api-input {
+          flex: 1;
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+          color: var(--text-primary);
+          padding: 0.625rem 1rem;
+          border-radius: var(--radius-md);
+          font-size: 0.875rem;
+        }
+
+        .api-input:focus {
+          outline: none;
+          border-color: var(--accent-tertiary);
+        }
+
+        .get-key-btn {
+          color: var(--text-muted);
+          font-size: 0.8125rem;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+
+        .get-key-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .theme-section {
+          grid-column: 1 / -1;
+        }
+
+        .theme-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.75rem;
+        }
+
+        .theme-option {
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-md);
+          padding: 0.875rem;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.625rem;
+          position: relative;
+        }
+
+        .theme-option:hover {
+          border-color: var(--accent-tertiary);
+        }
+
+        .theme-option.active {
+          border-color: var(--accent-primary);
+        }
+
+        .theme-colors {
+          display: flex;
+          gap: 0.375rem;
+        }
+
+        .color-swatch {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          opacity: 0.8;
+        }
+
+        .theme-name {
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+        }
+
+        .theme-option.active .theme-name {
+          color: var(--text-primary);
+        }
+
+        .theme-check {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          color: var(--accent-primary);
+        }
+
+        @media (max-width: 640px) {
+          .theme-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .profile-content {
+            flex-direction: column;
+            align-items: flex-start;
+          }
         }
       `}</style>
     </>

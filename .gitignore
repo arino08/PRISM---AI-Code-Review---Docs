@@ -45,3 +45,6 @@ frontend/.env.local
 
 # Vercel
 .vercel
+
+# Docker volumes
+weaviate_data/

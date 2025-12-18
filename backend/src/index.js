@@ -19,21 +19,67 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 // Middleware - CORS
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
+app.use(cors({
+    origin: ['http://localhost:3008', 'http://localhost:3000', 'http://127.0.0.1:3008'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-OpenAI-Api-Key']
+}));
 app.use(express.json({ limit: '10mb' }));
+
+// RAG Services
+const { ingestRepo } = require('./services/rag/ingestion');
+const { semanticSearch } = require('./services/rag/search');
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: '1.0.0' });
+});
+
+// RAG: Ingest Repo
+app.post('/api/rag/ingest', async (req, res) => {
+    try {
+        const { repoPath, openaiKey } = req.body;
+        console.log(`[Ingest] Request received for: ${repoPath}`);
+
+        if (!repoPath) return res.status(400).json({ error: "repoPath is required" });
+        const apiKey = openaiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) return res.status(400).json({ error: "OpenAI API Key is required. Please configure it in Settings." });
+
+        const result = await ingestRepo(repoPath, apiKey);
+
+        console.log('[Ingest] Ingestion successful, sending response...');
+        res.json(result);
+    } catch (err) {
+        console.error("[Ingest] Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+const { askCodebase } = require('./services/rag/ragAnalyzer');
+
+// RAG: Chat with Repo
+app.post('/api/rag/query', async (req, res) => {
+    try {
+        const { query, openaiKey } = req.body;
+        const apiKey = openaiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) return res.status(400).json({ error: "OpenAI API Key is required. Please configure it in Settings." });
+
+        const result = await askCodebase(query, apiKey);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// RAG: Search
+app.post('/api/rag/search', async (req, res) => {
+    try {
+        const { query } = req.body;
+        const results = await semanticSearch(query);
+        res.json({ results });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Analyze code for security and quality issues
@@ -514,9 +560,14 @@ function mapToOriginalLine(ourLine, lineMap) {
   return lineMap[ourLine] || ourLine;
 }
 
-// Start server
-app.listen(PORT, () => {
+// Start server with extended timeouts for long-running operations
+const server = app.listen(PORT, () => {
   console.log(`🚀 CodeReview AI Backend running on http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🐙 GitHub integration enabled`);
 });
+
+// Extend timeouts for large repo ingestion (5 minutes)
+server.timeout = 0; // Disable request timeout entirely
+server.keepAliveTimeout = 300000; // 5 minutes
+server.headersTimeout = 305000; // Slightly longer than keepAliveTimeout

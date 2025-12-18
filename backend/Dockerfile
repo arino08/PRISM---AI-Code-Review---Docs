@@ -1,4 +1,7 @@
-FROM node:18-alpine
+FROM node:22-alpine
+
+# Install git for cloning repositories
+RUN apk add --no-cache git
 
 WORKDIR /app
 

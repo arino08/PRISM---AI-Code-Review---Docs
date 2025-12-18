@@ -7,19 +7,54 @@ services:
       - "3005:3005"
     environment:
       - PORT=3005
+      - WEAVIATE_HOST=weaviate:8080
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     restart: always
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "3008:3000"
     environment:
       # These should be updated for production deployment
-      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_URL=http://localhost:3008
       - NEXTAUTH_SECRET=changeme_in_production
+      - NEXT_PUBLIC_API_URL=http://localhost:3005
       # GitHub OAuth - You need to provide these
       - GITHUB_ID=${GITHUB_ID}
       - GITHUB_SECRET=${GITHUB_SECRET}
     depends_on:
       - backend
-    restart: always
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./frontend/src
+          target: /app/src
+        - action: rebuild
+          path: ./frontend/package.json
+
+  weaviate:
+    command:
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8080'
+    - --scheme
+    - http
+    image: semitechnologies/weaviate:1.24.1
+    ports:
+    - 8090:8080
+    volumes:
+    - ./weaviate_data:/var/lib/weaviate
+    restart: on-failure:0
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+      ENABLE_MODULES: 'text2vec-openai'
+      # Weaviate needs OpenAI key for the vectorizer module if used internally
+      # For this architecture, we might embed manually in backend, but enabling the module gives flexibility.
+      OPENAI_APIKEY: ${OPENAI_API_KEY}
