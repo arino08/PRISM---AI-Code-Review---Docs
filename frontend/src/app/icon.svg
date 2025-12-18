@@ -1,32 +1,17 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Dark background for visibility -->
+  <rect width="32" height="32" rx="6" fill="#0a0a0a"/>
+
   <!-- Main prism triangle -->
   <path
-    d="M16 4L6 28H26L16 4Z"
+    d="M16 6L8 26H24L16 6Z"
     fill="none"
     stroke="#ffffff"
-    stroke-width="2"
+    stroke-width="1.5"
     stroke-linejoin="round"
   />
 
   <!-- Light refraction lines -->
-  <path
-    d="M16 4L10 28"
-    stroke="#ffffff"
-    stroke-width="1.5"
-    opacity="0.6"
-  />
-  <path
-    d="M16 4L22 28"
-    stroke="#ffffff"
-    stroke-width="1.5"
-    opacity="0.6"
-  />
-
-  <!-- Center vertical -->
-  <path
-    d="M16 4L16 28"
-    stroke="#ffffff"
-    stroke-width="1.5"
-    opacity="0.3"
-  />
+  <path d="M16 6L11 26" stroke="#ffffff" stroke-width="1" opacity="0.5"/>
+  <path d="M16 6L21 26" stroke="#ffffff" stroke-width="1" opacity="0.5"/>
 </svg>
