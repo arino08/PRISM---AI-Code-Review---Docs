@@ -25,6 +25,7 @@ const allowedOrigins = [
     'http://127.0.0.1:3008',
     'https://prism-ai-code-review-docs.onrender.com',
     'https://prism-frontend.onrender.com',
+    'https://prismcodereview.vercel.app',
     // Add your deployed frontend URL here
 ];
 
@@ -33,13 +34,17 @@ app.use(cors({
         // Allow requests with no origin (like mobile apps, curl, or Postman)
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.includes(origin) || origin.endsWith('.onrender.com')) {
+        // Allow Render and Vercel domains
+        if (allowedOrigins.includes(origin) ||
+            origin.endsWith('.onrender.com') ||
+            origin.endsWith('.vercel.app')) {
             callback(null, true);
         } else {
             console.log('CORS blocked origin:', origin);
-            callback(null, true); // Allow anyway for now - you can make this stricter
+            callback(null, true); // Allow anyway for now
         }
     },
+
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-OpenAI-Api-Key'],
     credentials: true,
