@@ -120,7 +120,86 @@ export default function GitHubPage() {
             </button>
           </div>
 
+          {/* GitHub Actions Guide */}
+          <details className="actions-guide">
+            <summary className="actions-guide-header">
+              <span className="guide-icon">🤖</span>
+              <span className="guide-title">Automate PR Reviews with GitHub Actions</span>
+              <span className="guide-badge">NEW</span>
+            </summary>
+            <div className="actions-guide-content">
+              <p className="guide-intro">
+                Set up PRISM to automatically review every PR in your repository.
+                When a PR is opened, PRISM will analyze the code and post a comment with:
+              </p>
+              <ul className="guide-features">
+                <li>📋 AI-generated summary of what the PR does</li>
+                <li>🛡️ Security vulnerability detection</li>
+                <li>📊 Code quality analysis</li>
+                <li>💡 Suggested fixes</li>
+              </ul>
+
+              <div className="guide-steps">
+                <div className="guide-step">
+                  <span className="step-number">1</span>
+                  <div className="step-content">
+                    <h4>Add the workflow file</h4>
+                    <p>Create <code>.github/workflows/prism-review.yml</code> in your repo:</p>
+                    <pre className="code-block">{`name: PRISM Code Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  prism-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PRISM Analysis
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          PRISM_API_URL: \${{ secrets.PRISM_API_URL }}
+          OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+        run: |
+          curl -X POST "$PRISM_API_URL/api/github/webhook" \\
+            -H "Content-Type: application/json" \\
+            -d '{
+              "owner": "\${{ github.repository_owner }}",
+              "repo": "\${{ github.event.repository.name }}",
+              "prNumber": \${{ github.event.pull_request.number }},
+              "token": "'"$GITHUB_TOKEN"'",
+              "openaiKey": "'"$OPENAI_API_KEY"'"
+            }'`}</pre>
+                  </div>
+                </div>
+
+                <div className="guide-step">
+                  <span className="step-number">2</span>
+                  <div className="step-content">
+                    <h4>Add repository secrets</h4>
+                    <p>Go to your repo → <strong>Settings</strong> → <strong>Secrets and variables</strong> → <strong>Actions</strong></p>
+                    <ul className="secrets-list">
+                      <li><code>PRISM_API_URL</code> — Your PRISM backend URL</li>
+                      <li><code>OPENAI_API_KEY</code> — For AI-powered summaries (optional)</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="guide-step">
+                  <span className="step-number">3</span>
+                  <div className="step-content">
+                    <h4>Open a PR</h4>
+                    <p>Create or update a PR and watch PRISM automatically post a review!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
           {/* Input Card */}
+
           <div className="input-card">
             {/* Analysis Mode */}
             <div className="form-group">
@@ -628,7 +707,167 @@ export default function GitHubPage() {
             grid-template-columns: 1fr;
           }
         }
+
+        /* GitHub Actions Guide Styles */
+        .actions-guide {
+          margin-bottom: 1.5rem;
+          background: var(--bg-secondary);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-lg);
+          overflow: hidden;
+        }
+
+        .actions-guide[open] {
+          border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .actions-guide-header {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 1rem 1.25rem;
+          cursor: pointer;
+          list-style: none;
+          user-select: none;
+        }
+
+        .actions-guide-header::-webkit-details-marker {
+          display: none;
+        }
+
+        .actions-guide-header:hover {
+          background: var(--bg-tertiary);
+        }
+
+        .guide-icon {
+          font-size: 1.25rem;
+        }
+
+        .guide-title {
+          font-weight: 500;
+          font-size: 0.9375rem;
+        }
+
+        .guide-badge {
+          font-size: 0.625rem;
+          padding: 0.125rem 0.5rem;
+          background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+          color: white;
+          border-radius: 9999px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .actions-guide-content {
+          padding: 0 1.25rem 1.25rem;
+          border-top: 1px solid var(--border-color);
+        }
+
+        .guide-intro {
+          margin: 1rem 0;
+          color: var(--text-secondary);
+          font-size: 0.875rem;
+          line-height: 1.6;
+        }
+
+        .guide-features {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.5rem;
+          margin: 1rem 0;
+          padding: 0;
+          list-style: none;
+        }
+
+        .guide-features li {
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+        }
+
+        .guide-steps {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          margin-top: 1.5rem;
+        }
+
+        .guide-step {
+          display: flex;
+          gap: 1rem;
+        }
+
+        .step-number {
+          flex-shrink: 0;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--bg-tertiary);
+          border: 1px solid var(--border-color);
+          border-radius: 50%;
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .step-content {
+          flex: 1;
+        }
+
+        .step-content h4 {
+          font-size: 0.9375rem;
+          font-weight: 600;
+          margin-bottom: 0.375rem;
+        }
+
+        .step-content p {
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+          margin-bottom: 0.75rem;
+        }
+
+        .step-content code {
+          background: var(--bg-tertiary);
+          padding: 0.125rem 0.375rem;
+          border-radius: 4px;
+          font-family: var(--font-mono);
+          font-size: 0.75rem;
+        }
+
+        .code-block {
+          background: var(--bg-primary);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-md);
+          padding: 1rem;
+          overflow-x: auto;
+          font-family: var(--font-mono);
+          font-size: 0.75rem;
+          line-height: 1.6;
+          color: var(--text-secondary);
+          white-space: pre;
+          margin: 0;
+        }
+
+        .secrets-list {
+          padding-left: 1.25rem;
+          margin: 0.5rem 0;
+        }
+
+        .secrets-list li {
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+          margin-bottom: 0.375rem;
+        }
+
+        @media (max-width: 640px) {
+          .guide-features {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
+
     </>
   );
 }

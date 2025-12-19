@@ -277,4 +277,106 @@ function convertToReadme(obj) {
   return readme.trim();
 }
 
-module.exports = { analyzeWithLLM, generateDocsWithLLM };
+/**
+ * Generate an intelligent PR summary using LLM
+ * Analyzes the diff and provides a concise description of changes
+ */
+async function generatePRSummary(prData, filesWithDiffs, apiKey) {
+  if (!apiKey) {
+    throw new Error('OpenAI API key is required for PR summary generation');
+  }
+
+  // Build context from PR data and diffs
+  const changesContext = filesWithDiffs.map(file => {
+    return `### ${file.filename} (${file.status})
++${file.additions} -${file.deletions}
+${file.patch ? file.patch.substring(0, 1500) : 'No diff available'}`;
+  }).join('\n\n');
+
+  const prompt = `You are a senior software engineer reviewing a Pull Request. Analyze the changes and provide a comprehensive but concise summary.
+
+## PR Information
+- **Title**: ${prData.title || 'Untitled'}
+- **Author**: ${prData.author}
+- **Base Branch**: ${prData.baseBranch} ← ${prData.headBranch}
+- **Files Changed**: ${prData.changedFiles}
+- **Lines**: +${prData.additions} -${prData.deletions}
+
+## Changes
+${changesContext}
+
+---
+
+Provide a JSON response with EXACTLY this structure:
+{
+  "summary": "A 2-3 sentence summary of what this PR does",
+  "keyChanges": ["Change 1", "Change 2", "Change 3"],
+  "category": "feature|bugfix|refactor|docs|test|chore|security",
+  "impact": "low|medium|high",
+  "securityNotes": "Any security concerns or null if none",
+  "breakingChanges": true|false,
+  "reviewFocus": ["Area 1 to pay attention to", "Area 2"]
+}
+
+Return ONLY valid JSON.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'OpenAI API error');
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || '{}';
+
+    // Parse JSON
+    let jsonStr = content;
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1];
+    }
+
+    const parsed = JSON.parse(jsonStr.trim());
+
+    return {
+      summary: parsed.summary || 'Unable to generate summary',
+      keyChanges: parsed.keyChanges || [],
+      category: parsed.category || 'chore',
+      impact: parsed.impact || 'medium',
+      securityNotes: parsed.securityNotes || null,
+      breakingChanges: parsed.breakingChanges || false,
+      reviewFocus: parsed.reviewFocus || []
+    };
+
+  } catch (error) {
+    console.error('PR summary generation failed:', error);
+    // Return a basic summary on failure
+    return {
+      summary: `This PR modifies ${prData.changedFiles} file(s) with ${prData.additions} additions and ${prData.deletions} deletions.`,
+      keyChanges: filesWithDiffs.map(f => `${f.status}: ${f.filename}`).slice(0, 5),
+      category: 'chore',
+      impact: 'medium',
+      securityNotes: null,
+      breakingChanges: false,
+      reviewFocus: []
+    };
+  }
+}
+
+module.exports = { analyzeWithLLM, generateDocsWithLLM, generatePRSummary };

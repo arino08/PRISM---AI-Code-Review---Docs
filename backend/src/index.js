@@ -4,7 +4,7 @@ const { analyzeCode } = require('./services/analyzers/securityAnalyzer');
 const { analyzeQuality } = require('./services/analyzers/qualityAnalyzer');
 const { analyzePerformance } = require('./services/analyzers/performanceAnalyzer');
 const { generateDocumentation } = require('./services/documentationGenerator');
-const { analyzeWithLLM, generateDocsWithLLM } = require('./services/llmAnalyzer');
+const { analyzeWithLLM, generateDocsWithLLM, generatePRSummary } = require('./services/llmAnalyzer');
 const {
   parseGitHubUrl,
   parsePRUrl,
@@ -503,7 +503,243 @@ app.post('/api/github/review-pr', async (req, res) => {
   }
 });
 
+// ============= GitHub Actions Webhook Endpoint =============
+// This endpoint is designed to be called from GitHub Actions when a PR is opened/updated
+app.post('/api/github/webhook', async (req, res) => {
+  try {
+    const {
+      owner,
+      repo,
+      prNumber,
+      token,
+      openaiKey,
+      mode = 'llm' // Default to LLM for better summaries
+    } = req.body;
+
+    if (!owner || !repo || !prNumber) {
+      return res.status(400).json({ error: 'owner, repo, and prNumber are required' });
+    }
+
+    if (!token) {
+      return res.status(400).json({ error: 'GitHub token is required to post comments' });
+    }
+
+    console.log(`[Webhook] Analyzing PR #${prNumber} for ${owner}/${repo}`);
+
+    // Fetch PR details
+    const pr = await getPullRequestDiff(owner, repo, prNumber, token);
+
+    // Analyze each changed file
+    const allIssues = [];
+    const fileAnalysis = [];
+
+    for (const file of pr.files) {
+      if (file.patch && file.status !== 'removed') {
+        const addedLines = extractAddedLines(file.patch);
+
+        if (addedLines.code) {
+          const language = getLanguageFromPath(file.filename);
+          let issues = [];
+
+          if (mode === 'llm' && openaiKey) {
+            try {
+              issues = await analyzeWithLLM(addedLines.code, language, openaiKey);
+            } catch (e) {
+              console.error(`LLM error for ${file.filename}:`, e.message);
+              // Fallback to pattern
+              const [security, quality, performance] = await Promise.all([
+                analyzeCode(addedLines.code, language),
+                analyzeQuality(addedLines.code, language),
+                analyzePerformance(addedLines.code, language)
+              ]);
+              issues = [...security, ...quality, ...performance];
+            }
+          } else {
+            const [security, quality, performance] = await Promise.all([
+              analyzeCode(addedLines.code, language),
+              analyzeQuality(addedLines.code, language),
+              analyzePerformance(addedLines.code, language)
+            ]);
+            issues = [...security, ...quality, ...performance];
+          }
+
+          const fileIssues = issues.map(issue => ({
+            ...issue,
+            path: file.filename,
+            line: mapToOriginalLine(issue.line, addedLines.lineMap)
+          }));
+
+          allIssues.push(...fileIssues);
+          fileAnalysis.push({
+            filename: file.filename,
+            status: file.status,
+            additions: file.additions,
+            deletions: file.deletions,
+            issueCount: fileIssues.length
+          });
+        }
+      }
+    }
+
+    // Generate PR summary using LLM
+    let prSummary = null;
+    if (openaiKey) {
+      try {
+        prSummary = await generatePRSummary(pr, pr.files, openaiKey);
+        console.log(`[Webhook] Generated PR summary for #${prNumber}`);
+      } catch (e) {
+        console.error('[Webhook] Summary generation failed:', e.message);
+      }
+    }
+
+    // Sort issues by severity
+    const severityOrder = { critical: 0, high: 1, moderate: 2, low: 3 };
+    allIssues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+
+    // Build the review comment
+    const criticalCount = allIssues.filter(i => i.severity === 'critical').length;
+    const highCount = allIssues.filter(i => i.severity === 'high').length;
+    const moderateCount = allIssues.filter(i => i.severity === 'moderate').length;
+    const lowCount = allIssues.filter(i => i.severity === 'low').length;
+
+    // Construct the comment body
+    let commentBody = `## 🔮 PRISM Code Review\n\n`;
+
+    // Add PR Summary section if available
+    if (prSummary) {
+      const categoryEmoji = {
+        feature: '✨',
+        bugfix: '🐛',
+        refactor: '♻️',
+        docs: '📚',
+        test: '🧪',
+        chore: '🔧',
+        security: '🔒'
+      };
+
+      const impactBadge = {
+        low: '🟢 Low',
+        medium: '🟡 Medium',
+        high: '🔴 High'
+      };
+
+      commentBody += `### 📋 PR Summary\n\n`;
+      commentBody += `${categoryEmoji[prSummary.category] || '📦'} **${prSummary.category?.toUpperCase() || 'CHANGE'}** | Impact: ${impactBadge[prSummary.impact] || '🟡 Medium'}\n\n`;
+      commentBody += `> ${prSummary.summary}\n\n`;
+
+      if (prSummary.keyChanges && prSummary.keyChanges.length > 0) {
+        commentBody += `**Key Changes:**\n`;
+        prSummary.keyChanges.forEach(change => {
+          commentBody += `- ${change}\n`;
+        });
+        commentBody += `\n`;
+      }
+
+      if (prSummary.breakingChanges) {
+        commentBody += `> ⚠️ **Breaking Changes Detected**\n\n`;
+      }
+
+      if (prSummary.securityNotes) {
+        commentBody += `> 🔐 **Security Note:** ${prSummary.securityNotes}\n\n`;
+      }
+
+      if (prSummary.reviewFocus && prSummary.reviewFocus.length > 0) {
+        commentBody += `**Review Focus:**\n`;
+        prSummary.reviewFocus.forEach(focus => {
+          commentBody += `- 👀 ${focus}\n`;
+        });
+        commentBody += `\n`;
+      }
+
+      commentBody += `---\n\n`;
+    }
+
+    // Add analysis results
+    commentBody += `### 🔍 Code Analysis\n\n`;
+    commentBody += `| Severity | Count |\n|----------|-------|\n`;
+    commentBody += `| 🔴 Critical | ${criticalCount} |\n`;
+    commentBody += `| 🟠 High | ${highCount} |\n`;
+    commentBody += `| 🟡 Moderate | ${moderateCount} |\n`;
+    commentBody += `| 🟢 Low | ${lowCount} |\n\n`;
+
+    if (allIssues.length > 0) {
+      commentBody += `<details>\n<summary>📝 View ${allIssues.length} Issue(s)</summary>\n\n`;
+
+      // Group issues by file
+      const issuesByFile = {};
+      allIssues.forEach(issue => {
+        if (!issuesByFile[issue.path]) {
+          issuesByFile[issue.path] = [];
+        }
+        issuesByFile[issue.path].push(issue);
+      });
+
+      for (const [filename, issues] of Object.entries(issuesByFile)) {
+        commentBody += `#### \`${filename}\`\n\n`;
+        issues.slice(0, 5).forEach(issue => { // Limit to 5 per file
+          const severityIcon = { critical: '🔴', high: '🟠', moderate: '🟡', low: '🟢' };
+          commentBody += `${severityIcon[issue.severity] || '⚪'} **${issue.title}** (Line ${issue.line || '?'})\n`;
+          commentBody += `> ${issue.description}\n`;
+          if (issue.fix) {
+            commentBody += `> 💡 Fix: ${issue.fix}\n`;
+          }
+          commentBody += `\n`;
+        });
+      }
+
+      commentBody += `</details>\n\n`;
+    } else {
+      commentBody += `✅ **No significant issues found!** This PR is looking good.\n\n`;
+    }
+
+    commentBody += `---\n*Analyzed by [PRISM](https://github.com/yourusername/prism) • AI-Powered Code Review*`;
+
+    // Post the comment to GitHub
+    const GITHUB_API = 'https://api.github.com';
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json',
+      'Authorization': `Bearer ${token}`,
+      'User-Agent': 'PRISM-CodeReview'
+    };
+
+    const commentResponse = await fetch(
+      `${GITHUB_API}/repos/${owner}/${repo}/issues/${prNumber}/comments`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ body: commentBody })
+      }
+    );
+
+    if (!commentResponse.ok) {
+      const error = await commentResponse.json();
+      throw new Error(error.message || 'Failed to post comment');
+    }
+
+    console.log(`[Webhook] Posted review comment to PR #${prNumber}`);
+
+    res.json({
+      success: true,
+      prNumber,
+      summary: prSummary,
+      issuesFound: allIssues.length,
+      summary: {
+        critical: criticalCount,
+        high: highCount,
+        moderate: moderateCount,
+        low: lowCount
+      },
+      message: `Analysis complete. Posted review to PR #${prNumber}`
+    });
+
+  } catch (error) {
+    console.error('[Webhook] Error:', error);
+    res.status(500).json({ error: 'Webhook processing failed', message: error.message });
+  }
+});
+
 // Helper: Get language from file path
+
 function getLanguageFromPath(path) {
   const ext = path.split('.').pop().toLowerCase();
   const langMap = {

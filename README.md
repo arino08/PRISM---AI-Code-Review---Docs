@@ -96,8 +96,11 @@ PRISM provides a comprehensive suite of AI-powered development tools designed to
 |---------|-------------|
 | **Repository Analysis** | Analyze entire GitHub repositories for issues |
 | **Pull Request Review** | Review PR diffs and added code for problems |
+| **GitHub Actions** | 🆕 Automatic PR analysis via CI/CD workflow |
+| **AI PR Summaries** | 🆕 LLM-generated descriptions of what each PR does |
 | **File Tree Exploration** | Browse repository structure before analysis |
 | **OAuth Authentication** | Secure GitHub sign-in for private repos |
+
 
 ### 💬 RAG Chat (Ask Your Codebase)
 
@@ -213,7 +216,62 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 4. Ask natural language questions about the code
 5. Get AI-powered answers with code context
 
+### 🤖 GitHub Actions (Automatic PR Review)
+
+Set up PRISM to automatically review every Pull Request in your repository:
+
+**Step 1: Copy the workflow file**
+
+Copy `.github/workflows/prism-review.yml` to your repository:
+
+```yaml
+name: PRISM Code Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  prism-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PRISM Analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRISM_API_URL: ${{ secrets.PRISM_API_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          curl -X POST "$PRISM_API_URL/api/github/webhook" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "owner": "${{ github.repository_owner }}",
+              "repo": "${{ github.event.repository.name }}",
+              "prNumber": ${{ github.event.pull_request.number }},
+              "token": "'"$GITHUB_TOKEN"'",
+              "openaiKey": "'"$OPENAI_API_KEY"'"
+            }'
+```
+
+**Step 2: Add repository secrets**
+
+In your repo → Settings → Secrets:
+- `PRISM_API_URL`: Your PRISM backend URL
+- `OPENAI_API_KEY`: OpenAI key for LLM summaries
+
+**What you get:**
+
+Every PR will receive an automated comment with:
+- 📋 **PR Summary**: AI-generated description of what the PR does
+- 🏷️ **Category**: feature/bugfix/refactor/docs/etc.
+- 📊 **Impact Level**: Low/Medium/High
+- 🔍 **Security Analysis**: Vulnerabilities detected
+- 💡 **Fix Suggestions**: How to resolve issues
+- ⚠️ **Breaking Changes**: Warnings if detected
+
 ---
+
 
 ## 🏗️ Architecture
 
@@ -322,6 +380,9 @@ ai-code-review/
 | `/api/github/repo` | POST | Get repo info and file tree |
 | `/api/github/analyze-repo` | POST | Analyze entire repository |
 | `/api/github/analyze-pr` | POST | Analyze Pull Request changes |
+| `/api/github/webhook` | POST | 🆕 GitHub Actions webhook (auto-review PRs) |
+| `/api/github/review-pr` | POST | Analyze PR and post comments directly |
+
 
 ### RAG Endpoints
 
