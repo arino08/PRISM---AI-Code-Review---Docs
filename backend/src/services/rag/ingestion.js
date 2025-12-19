@@ -15,12 +15,25 @@ const execAsync = promisify(exec);
 
 // Helper to get client with auth
 function getClient(apiKey) {
-    return weaviate.client({
-        scheme: 'http',
-        host: process.env.WEAVIATE_HOST || 'localhost:8080',
-        headers: { 'X-OpenAI-Api-Key': apiKey || process.env.OPENAI_API_KEY || '' }
-    });
+    const host = process.env.WEAVIATE_HOST || 'localhost:8080';
+    const isCloud = host.includes('weaviate.network') || host.includes('weaviate.cloud');
+
+    const config = {
+        scheme: isCloud ? 'https' : 'http',
+        host: host,
+        headers: {
+            'X-OpenAI-Api-Key': apiKey || process.env.OPENAI_API_KEY || ''
+        }
+    };
+
+    // Add Weaviate API key for cloud instances
+    if (process.env.WEAVIATE_API_KEY) {
+        config.apiKey = new weaviate.ApiKey(process.env.WEAVIATE_API_KEY);
+    }
+
+    return weaviate.client(config);
 }
+
 
 const CLASS_NAME = 'CodeSnippet';
 

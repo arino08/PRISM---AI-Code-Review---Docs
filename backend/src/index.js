@@ -65,6 +65,15 @@ app.get('/api/health', (req, res) => {
 // RAG: Ingest Repo
 app.post('/api/rag/ingest', async (req, res) => {
     try {
+        // Check if Weaviate is configured
+        if (!process.env.WEAVIATE_HOST && process.env.NODE_ENV === 'production') {
+            return res.status(503).json({
+                error: "RAG feature requires Weaviate database.",
+                message: "The RAG Chat feature is not available on the hosted version. Please run PRISM locally with Docker to use this feature.",
+                code: "WEAVIATE_NOT_CONFIGURED"
+            });
+        }
+
         const { repoPath, openaiKey } = req.body;
         console.log(`[Ingest] Request received for: ${repoPath}`);
 
@@ -78,15 +87,45 @@ app.post('/api/rag/ingest', async (req, res) => {
         res.json(result);
     } catch (err) {
         console.error("[Ingest] Error:", err);
+        // Handle Weaviate connection errors - check message and cause
+        const isConnectionError =
+            (err.message && err.message.includes('fetch failed')) ||
+            (err.cause && err.cause.code === 'ECONNREFUSED') ||
+            (err.code === 'ECONNREFUSED');
+
+        if (isConnectionError) {
+            return res.status(503).json({
+                error: "Cannot connect to Weaviate database.",
+                message: "The RAG Chat feature requires Weaviate. Run PRISM locally with Docker to use this feature.",
+                code: "WEAVIATE_CONNECTION_FAILED"
+            });
+        }
         res.status(500).json({ error: err.message });
     }
+
 });
 
+
 const { askCodebase } = require('./services/rag/ragAnalyzer');
+
+// Helper: Check if Weaviate is available
+const isWeaviateAvailable = () => {
+    return process.env.WEAVIATE_HOST || process.env.NODE_ENV !== 'production';
+};
+
+const weaviateUnavailableResponse = {
+    error: "RAG feature requires Weaviate database.",
+    message: "The RAG Chat feature is not available on the hosted version. Please run PRISM locally with Docker to use this feature.",
+    code: "WEAVIATE_NOT_CONFIGURED"
+};
 
 // RAG: Chat with Repo
 app.post('/api/rag/query', async (req, res) => {
     try {
+        if (!isWeaviateAvailable()) {
+            return res.status(503).json(weaviateUnavailableResponse);
+        }
+
         const { query, openaiKey } = req.body;
         const apiKey = openaiKey || process.env.OPENAI_API_KEY;
         if (!apiKey) return res.status(400).json({ error: "OpenAI API Key is required. Please configure it in Settings." });
@@ -94,6 +133,9 @@ app.post('/api/rag/query', async (req, res) => {
         const result = await askCodebase(query, apiKey);
         res.json(result);
     } catch (error) {
+        if (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed'))) {
+            return res.status(503).json(weaviateUnavailableResponse);
+        }
         res.status(500).json({ error: error.message });
     }
 });
@@ -101,10 +143,15 @@ app.post('/api/rag/query', async (req, res) => {
 // RAG: Search
 app.post('/api/rag/search', async (req, res) => {
     try {
+        if (!isWeaviateAvailable()) {
+            return res.status(503).json(weaviateUnavailableResponse);
+        }
+
         const { query } = req.body;
         const results = await semanticSearch(query);
         res.json({ results });
     } catch (error) {
+
         res.status(500).json({ error: error.message });
     }
 });
