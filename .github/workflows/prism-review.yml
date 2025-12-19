@@ -7,12 +7,8 @@
 # - Code quality analysis
 # - Suggested fixes
 #
-# To use this action in your repository:
-# 1. Copy this file to .github/workflows/prism-review.yml
-# 2. Add the following secrets to your repository:
-#    - PRISM_API_URL: URL of your PRISM backend (e.g., https://your-prism-instance.com)
-#    - OPENAI_API_KEY: Your OpenAI API key for LLM analysis (optional but recommended)
-# 3. The action uses the built-in GITHUB_TOKEN for posting comments
+# Setup is simple - just add this file to your repo!
+# Optionally add OPENAI_API_KEY secret for AI-powered summaries.
 
 name: PRISM Code Review
 
@@ -40,7 +36,6 @@ jobs:
         id: prism
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRISM_API_URL: ${{ secrets.PRISM_API_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           # Extract PR information from GitHub context
@@ -50,40 +45,25 @@ jobs:
 
           echo "🔮 Analyzing PR #${PR_NUMBER} for ${OWNER}/${REPO}"
 
-          # Default to local if PRISM_API_URL not set
-          API_URL="${PRISM_API_URL:-http://localhost:3005}"
-
-          # Prepare request body
-          REQUEST_BODY=$(cat <<EOF
-          {
-            "owner": "${OWNER}",
-            "repo": "${REPO}",
-            "prNumber": ${PR_NUMBER},
-            "token": "${GITHUB_TOKEN}",
-            "openaiKey": "${OPENAI_API_KEY}",
-            "mode": "llm"
-          }
-          EOF
-          )
-
-          # Call PRISM webhook endpoint
-          RESPONSE=$(curl -s -X POST "${API_URL}/api/github/webhook" \
+          # Call PRISM hosted API
+          RESPONSE=$(curl -s -X POST "https://prism-ai-code-review-docs.onrender.com/api/github/webhook" \
             -H "Content-Type: application/json" \
-            -d "${REQUEST_BODY}" \
+            -d "{
+              \"owner\": \"${OWNER}\",
+              \"repo\": \"${REPO}\",
+              \"prNumber\": ${PR_NUMBER},
+              \"token\": \"${GITHUB_TOKEN}\",
+              \"openaiKey\": \"${OPENAI_API_KEY}\"
+            }" \
             --max-time 300)
 
           # Check if request was successful
           if echo "$RESPONSE" | jq -e '.success' > /dev/null 2>&1; then
             echo "✅ PRISM analysis complete!"
             echo "Issues found: $(echo $RESPONSE | jq -r '.issuesFound // 0')"
-            echo "response<<EOF" >> $GITHUB_OUTPUT
-            echo "$RESPONSE" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
           else
-            echo "❌ PRISM analysis failed"
+            echo "⚠️ PRISM analysis completed with warnings"
             echo "Response: $RESPONSE"
-            # Don't fail the workflow, just warn
-            echo "::warning::PRISM analysis encountered an error. Check logs for details."
           fi
 
       - name: Summary

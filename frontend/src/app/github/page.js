@@ -160,10 +160,9 @@ jobs:
       - name: PRISM Analysis
         env:
           GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-          PRISM_API_URL: \${{ secrets.PRISM_API_URL }}
           OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
         run: |
-          curl -X POST "$PRISM_API_URL/api/github/webhook" \\
+          curl -X POST "https://prism-ai-code-review-docs.onrender.com/api/github/webhook" \\
             -H "Content-Type: application/json" \\
             -d '{
               "owner": "\${{ github.repository_owner }}",
@@ -178,12 +177,12 @@ jobs:
                 <div className="guide-step">
                   <span className="step-number">2</span>
                   <div className="step-content">
-                    <h4>Add repository secrets</h4>
-                    <p>Go to your repo → <strong>Settings</strong> → <strong>Secrets and variables</strong> → <strong>Actions</strong></p>
+                    <h4>Add your OpenAI API key (optional)</h4>
+                    <p>For AI-powered summaries, go to your repo → <strong>Settings</strong> → <strong>Secrets</strong> → <strong>Actions</strong></p>
                     <ul className="secrets-list">
-                      <li><code>PRISM_API_URL</code> — Your PRISM backend URL</li>
-                      <li><code>OPENAI_API_KEY</code> — For AI-powered summaries (optional)</li>
+                      <li><code>OPENAI_API_KEY</code> — Enables AI summaries & deep analysis</li>
                     </ul>
+                    <p className="note">Without an API key, PRISM uses pattern-based analysis (still catches security issues!)</p>
                   </div>
                 </div>
 
@@ -191,10 +190,11 @@ jobs:
                   <span className="step-number">3</span>
                   <div className="step-content">
                     <h4>Open a PR</h4>
-                    <p>Create or update a PR and watch PRISM automatically post a review!</p>
+                    <p>That's it! Open a PR and PRISM will automatically post a review comment.</p>
                   </div>
                 </div>
               </div>
+
             </div>
           </details>
 
@@ -861,11 +861,19 @@ jobs:
           margin-bottom: 0.375rem;
         }
 
+        .note {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          font-style: italic;
+          margin-top: 0.5rem;
+        }
+
         @media (max-width: 640px) {
           .guide-features {
             grid-template-columns: 1fr;
           }
         }
+
       `}</style>
 
     </>

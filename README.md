@@ -220,9 +220,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Set up PRISM to automatically review every Pull Request in your repository:
 
-**Step 1: Copy the workflow file**
+**Step 1: Add the workflow file**
 
-Copy `.github/workflows/prism-review.yml` to your repository:
+Create `.github/workflows/prism-review.yml` in your repository:
 
 ```yaml
 name: PRISM Code Review
@@ -240,10 +240,9 @@ jobs:
       - name: PRISM Analysis
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PRISM_API_URL: ${{ secrets.PRISM_API_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          curl -X POST "$PRISM_API_URL/api/github/webhook" \
+          curl -X POST "https://prism-ai-code-review-docs.onrender.com/api/github/webhook" \
             -H "Content-Type: application/json" \
             -d '{
               "owner": "${{ github.repository_owner }}",
@@ -254,11 +253,12 @@ jobs:
             }'
 ```
 
-**Step 2: Add repository secrets**
+**Step 2: Add OpenAI API key (optional)**
 
-In your repo → Settings → Secrets:
-- `PRISM_API_URL`: Your PRISM backend URL
-- `OPENAI_API_KEY`: OpenAI key for LLM summaries
+For AI-powered summaries, add this secret to your repo (Settings → Secrets → Actions):
+- `OPENAI_API_KEY`: Your OpenAI API key
+
+> **Note:** Without an API key, PRISM still works using pattern-based analysis!
 
 **What you get:**
 
@@ -271,6 +271,7 @@ Every PR will receive an automated comment with:
 - ⚠️ **Breaking Changes**: Warnings if detected
 
 ---
+
 
 
 ## 🏗️ Architecture
