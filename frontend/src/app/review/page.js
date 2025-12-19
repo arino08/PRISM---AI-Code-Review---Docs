@@ -95,7 +95,12 @@ export default function ReviewPage() {
                 <option value="javascript">JavaScript</option>
                 <option value="typescript">TypeScript</option>
                 <option value="python">Python</option>
+                <option value="go">Go</option>
+                <option value="java">Java</option>
+                <option value="rust">Rust</option>
+                <option value="php">PHP</option>
               </select>
+
               <button
                 className="btn-analyze"
                 onClick={handleAnalyze}
