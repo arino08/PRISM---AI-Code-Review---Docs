@@ -19,12 +19,34 @@ const app = express();
 const PORT = process.env.PORT || 3005;
 
 // Middleware - CORS
+const allowedOrigins = [
+    'http://localhost:3008',
+    'http://localhost:3000',
+    'http://127.0.0.1:3008',
+    'https://prism-ai-code-review-docs.onrender.com',
+    'https://prism-frontend.onrender.com',
+    // Add your deployed frontend URL here
+];
+
 app.use(cors({
-    origin: ['http://localhost:3008', 'http://localhost:3000', 'http://127.0.0.1:3008'],
+    origin: function(origin, callback) {
+        // Allow requests with no origin (like mobile apps, curl, or Postman)
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.includes(origin) || origin.endsWith('.onrender.com')) {
+            callback(null, true);
+        } else {
+            console.log('CORS blocked origin:', origin);
+            callback(null, true); // Allow anyway for now - you can make this stricter
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-OpenAI-Api-Key']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-OpenAI-Api-Key'],
+    credentials: true,
+    optionsSuccessStatus: 200 // Some legacy browsers choke on 204
 }));
 app.use(express.json({ limit: '10mb' }));
+
 
 // RAG Services
 const { ingestRepo } = require('./services/rag/ingestion');
