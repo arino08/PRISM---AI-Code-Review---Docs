@@ -1080,17 +1080,141 @@ input::placeholder, textarea::placeholder {
   --border-glow: rgba(239, 68, 68, 0.4);
 }
 
-/* Force overrides for buttons in colored themes to maintain contrast if needed,
-   but "Black BG / White Border" style from previous step might look good universally
-   OR might clash. Let's inspect.
-   Actually, the user explicitly asked for "black background" buttons previously.
-   If we switch to a colored theme like Neon, purely black buttons might look
-   too stark or just fine. Let's keep the .btn-primary overrides we added earlier
-   (background: #000000) as they are specific classes.
-   However, for the theme to feel "immersive", standard buttons might want to
-   adapt. But "btn-primary" was hardcoded to #000000.
-   Let's check if we need to scope that hardcode to [data-theme='monochromatic']
-   or if we keep it global.
-   User said "update the buttons ... to nice clean white border black background".
-   I will respect that global change for now.
-*/
+/* ============================================
+   MINIMALIST CUSTOM CURSOR
+   ============================================ */
+
+/* Hide default cursor on desktop */
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+}
+
+/* Outer ring - follows with lag */
+.custom-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  margin-left: -18px;
+  margin-top: -18px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99999;
+  opacity: 0;
+  transition:
+    width 0.2s ease-out,
+    height 0.2s ease-out,
+    margin 0.2s ease-out,
+    opacity 0.15s ease-out,
+    border-color 0.2s ease-out,
+    background-color 0.2s ease-out;
+  will-change: transform;
+  mix-blend-mode: difference;
+}
+
+/* Inner dot - precise position */
+.custom-cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  margin-top: -2px;
+  background: #fff;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 100000;
+  opacity: 0;
+  transition:
+    width 0.15s ease-out,
+    height 0.15s ease-out,
+    margin 0.15s ease-out,
+    opacity 0.15s ease-out,
+    background-color 0.15s ease-out;
+  will-change: transform;
+}
+
+/* Visible state */
+.custom-cursor.visible,
+.custom-cursor-dot.visible {
+  opacity: 1;
+}
+
+/* Hover over interactive elements */
+.custom-cursor.pointer {
+  width: 48px;
+  height: 48px;
+  margin-left: -24px;
+  margin-top: -24px;
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.custom-cursor-dot.pointer {
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  margin-top: -3px;
+  background: #fff;
+}
+
+/* Clicking state */
+.custom-cursor.clicking {
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.custom-cursor-dot.clicking {
+  width: 2px;
+  height: 2px;
+  margin-left: -1px;
+  margin-top: -1px;
+}
+
+/* Text input state */
+.custom-cursor.text {
+  width: 4px;
+  height: 24px;
+  margin-left: -2px;
+  margin-top: -12px;
+  border-radius: 2px;
+  border: none;
+  background: rgba(255, 255, 255, 0.8);
+  animation: cursorBlink 1s ease-in-out infinite;
+}
+
+.custom-cursor.text + .custom-cursor-dot {
+  opacity: 0;
+}
+
+@keyframes cursorBlink {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0.5; }
+}
+
+/* Hide custom cursor on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .custom-cursor,
+  .custom-cursor-dot {
+    display: none !important;
+  }
+
+  * {
+    cursor: auto !important;
+  }
+}
+
+/* Hide when interacting with code editors (Monaco) */
+.monaco-editor .custom-cursor,
+.monaco-editor .custom-cursor-dot {
+  display: none;
+}

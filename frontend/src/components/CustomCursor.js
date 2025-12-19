@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export default function CustomCursor() {
   const cursorRef = useRef(null);
   const cursorDotRef = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isPointer, setIsPointer] = useState(false);
+  const [isClicking, setIsClicking] = useState(false);
+  const [isText, setIsText] = useState(false);
 
   useEffect(() => {
     const cursor = cursorRef.current;
@@ -12,55 +16,88 @@ export default function CustomCursor() {
 
     if (!cursor || !cursorDot) return;
 
+    // Smooth cursor movement with lerping
+    let mouseX = 0;
+    let mouseY = 0;
+    let cursorX = 0;
+    let cursorY = 0;
+    const speed = 0.15;
+
+    const animate = () => {
+      // Lerp for smooth movement on outer ring
+      cursorX += (mouseX - cursorX) * speed;
+      cursorY += (mouseY - cursorY) * speed;
+
+      cursor.style.transform = `translate(${cursorX}px, ${cursorY}px)`;
+      cursorDot.style.transform = `translate(${mouseX}px, ${mouseY}px)`;
+
+      requestAnimationFrame(animate);
+    };
+
     const moveCursor = (e) => {
-      cursor.style.left = e.clientX + 'px';
-      cursor.style.top = e.clientY + 'px';
-      cursorDot.style.left = e.clientX + 'px';
-      cursorDot.style.top = e.clientY + 'px';
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+
+      if (!isVisible) {
+        setIsVisible(true);
+      }
     };
 
-    const handleMouseDown = () => {
-      cursor.classList.add('clicking');
-    };
+    const handleMouseDown = () => setIsClicking(true);
+    const handleMouseUp = () => setIsClicking(false);
+    const handleMouseLeave = () => setIsVisible(false);
+    const handleMouseEnter = () => setIsVisible(true);
 
-    const handleMouseUp = () => {
-      cursor.classList.remove('clicking');
-    };
+    // Detect interactive elements
+    const handleMouseOver = (e) => {
+      const target = e.target;
+      const isInteractive = target.closest('a, button, [role="button"], .clickable, .action-card, .nav-link, .btn, select');
+      const isTextInput = target.closest('input[type="text"], input[type="email"], input[type="password"], textarea, [contenteditable="true"]');
 
-    const handleMouseEnterInteractive = () => {
-      cursor.classList.add('hovering');
-    };
-
-    const handleMouseLeaveInteractive = () => {
-      cursor.classList.remove('hovering');
+      setIsPointer(!!isInteractive);
+      setIsText(!!isTextInput);
     };
 
     document.addEventListener('mousemove', moveCursor);
     document.addEventListener('mousedown', handleMouseDown);
     document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseleave', handleMouseLeave);
+    document.addEventListener('mouseenter', handleMouseEnter);
+    document.addEventListener('mouseover', handleMouseOver);
 
-    // Add hover effect for interactive elements
-    const interactiveElements = document.querySelectorAll('a, button, input, select, textarea, [role="button"]');
-    interactiveElements.forEach(el => {
-      el.addEventListener('mouseenter', handleMouseEnterInteractive);
-      el.addEventListener('mouseleave', handleMouseLeaveInteractive);
-    });
+    // Start animation
+    animate();
 
     return () => {
       document.removeEventListener('mousemove', moveCursor);
       document.removeEventListener('mousedown', handleMouseDown);
       document.removeEventListener('mouseup', handleMouseUp);
-      interactiveElements.forEach(el => {
-        el.removeEventListener('mouseenter', handleMouseEnterInteractive);
-        el.removeEventListener('mouseleave', handleMouseLeaveInteractive);
-      });
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      document.removeEventListener('mouseenter', handleMouseEnter);
+      document.removeEventListener('mouseover', handleMouseOver);
     };
-  }, []);
+  }, [isVisible]);
+
+  // Build class names
+  const cursorClasses = [
+    'custom-cursor',
+    isVisible ? 'visible' : '',
+    isPointer ? 'pointer' : '',
+    isClicking ? 'clicking' : '',
+    isText ? 'text' : ''
+  ].filter(Boolean).join(' ');
+
+  const dotClasses = [
+    'custom-cursor-dot',
+    isVisible ? 'visible' : '',
+    isPointer ? 'pointer' : '',
+    isClicking ? 'clicking' : ''
+  ].filter(Boolean).join(' ');
 
   return (
     <>
-      <div ref={cursorRef} className="cursor" />
-      <div ref={cursorDotRef} className="cursor-dot" />
+      <div ref={cursorRef} className={cursorClasses} />
+      <div ref={cursorDotRef} className={dotClasses} />
     </>
   );
 }
