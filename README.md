@@ -33,7 +33,20 @@
 
 PRISM provides a comprehensive suite of AI-powered development tools designed to enhance code quality, security, and documentation.
 
+### 🌐 Supported Languages
+
+| Language | Extensions | Security | Quality | Performance |
+|----------|-----------|----------|---------|-------------|
+| JavaScript | `.js`, `.jsx` | ✅ | ✅ | ✅ |
+| TypeScript | `.ts`, `.tsx` | ✅ | ✅ | ✅ |
+| Python | `.py` | ✅ | ✅ | ✅ |
+| Go | `.go` | ✅ | ✅ | ✅ |
+| Java | `.java` | ✅ | ✅ | ✅ |
+| Rust | `.rs` | ✅ | ✅ | ✅ |
+| PHP | `.php` | ✅ | ✅ | ✅ |
+
 ### 🛡️ Automated Code Review
+
 
 <table>
 <tr>
